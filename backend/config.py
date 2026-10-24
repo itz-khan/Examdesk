@@ -1,7 +1,8 @@
+import os
+import socket
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import AnyHttpUrl
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -19,10 +20,16 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     WORKERS: int = 1
+    # Identifies this backend process behind a load balancer.
+    # Set differently per EC2/container (e.g. INSTANCE_ID=backend-1).
+    # If empty, falls back to hostname so each machine is still distinct.
+    INSTANCE_ID: Optional[str] = None
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/examdesk"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
+    # Set true for hosted Postgres (e.g. Neon). Local Docker/Homebrew Postgres: false.
+    DATABASE_SSL: bool = False
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     # JWT
@@ -39,6 +46,8 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
         "https://examdesk-alpha.vercel.app",
         "https://examdesk-mx4f5lked-himanshu-yadav3.vercel.app",
     ]
@@ -59,6 +68,12 @@ class Settings(BaseSettings):
         if isinstance(self.ALLOWED_ORIGINS, list):
             return self.ALLOWED_ORIGINS
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
+
+    @property
+    def resolved_instance_id(self) -> str:
+        if self.INSTANCE_ID and self.INSTANCE_ID.strip():
+            return self.INSTANCE_ID.strip()
+        return os.getenv("HOSTNAME") or socket.gethostname()
 
 
 @lru_cache()

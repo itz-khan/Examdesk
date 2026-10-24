@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: examdesk-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -c "import asyncio, main; from database.session import create_tables; asyncio.run(create_tables())" && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_SSL
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CERT_SECRET_KEY
+        generateValue: true

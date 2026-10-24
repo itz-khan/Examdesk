@@ -4,15 +4,18 @@ Wires together all routers, middleware, and startup hooks.
 """
 
 import logging
+import os
+import socket
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from config import settings
-from database.session import create_tables
-from database.redis_client import connect_redis, disconnect_redis
+from database.session import create_tables, engine
+from database.redis_client import connect_redis, disconnect_redis, get_redis
 from middleware.logging import GlobalExceptionMiddleware, RequestLoggingMiddleware
 
 # ── Routers ────────────────────────────────────────────────────────────────
@@ -75,7 +78,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Correlation-ID", "X-Response-Time"],
+        expose_headers=["X-Correlation-ID", "X-Response-Time", "X-Instance-ID"],
     )
 
     # ── Custom middleware ──────────────────────────────────────────
@@ -98,14 +101,73 @@ def create_app() -> FastAPI:
     app.include_router(certificates_router,  prefix=PREFIX)
     app.include_router(audit_router,         prefix=PREFIX)
 
-    # ── Health check ───────────────────────────────────────────────
-    @app.get("/health", tags=["System"], include_in_schema=False)
+    # ── System endpoints (multi-instance / load-balancer friendly) ─
+    @app.get("/health", tags=["System"])
     async def health():
-        return JSONResponse({"status": "ok", "version": settings.APP_VERSION, "env": settings.ENVIRONMENT})
+        """Liveness: process is up. Safe for frequent ALB pings."""
+        return {
+            "status": "ok",
+            "version": settings.APP_VERSION,
+            "env": settings.ENVIRONMENT,
+            "instance_id": settings.resolved_instance_id,
+        }
+
+    @app.get("/ready", tags=["System"])
+    async def ready():
+        """
+        Readiness: can this instance serve exam traffic?
+        Checks shared PostgreSQL. Redis is optional (cache only).
+        Use this as the ALB target-group health check path.
+        """
+        checks = {"database": False, "redis": "skipped"}
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            checks["database"] = True
+        except Exception as exc:
+            logger.warning("Readiness DB check failed on %s: %s", settings.resolved_instance_id, exc)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "not_ready",
+                    "instance_id": settings.resolved_instance_id,
+                    "checks": checks,
+                    "detail": "database unavailable",
+                },
+            )
+
+        redis_client = get_redis()
+        if redis_client is not None:
+            try:
+                await redis_client.ping()
+                checks["redis"] = True
+            except Exception:
+                checks["redis"] = False  # optional — still ready
+
+        return {
+            "status": "ready",
+            "instance_id": settings.resolved_instance_id,
+            "checks": checks,
+        }
+
+    @app.get("/server-identity", tags=["System"])
+    async def server_identity(request: Request):
+        """
+        Shows which backend instance handled the request.
+        Useful when demonstrating ALB routing across EC2 instances.
+        """
+        return {
+            "instance_id": settings.resolved_instance_id,
+            "hostname": socket.gethostname(),
+            "pid": os.getpid(),
+            "version": settings.APP_VERSION,
+            "env": settings.ENVIRONMENT,
+            "listen_port": request.url.port,
+        }
 
     @app.get("/", tags=["System"], include_in_schema=False)
     async def root():
-        return {"message": "ExamDesk API", "docs": "/api/docs"}
+        return {"message": "ExamDesk API", "docs": "/api/docs", "health": "/health", "ready": "/ready"}
 
     return app
 

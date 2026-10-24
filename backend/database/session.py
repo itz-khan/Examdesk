@@ -20,13 +20,17 @@ convention = {
 metadata = MetaData(naming_convention=convention)
 
 # Async SQLAlchemy Engine
+# SSL is required for many cloud Postgres hosts (Neon, RDS with TLS).
+# Local Postgres usually has no SSL — controlled by DATABASE_SSL.
+_connect_args = {"ssl": True} if settings.DATABASE_SSL else {}
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    connect_args={"ssl": True},
+    connect_args=_connect_args,
 )
 
 # Session Factory
