@@ -11,8 +11,8 @@ resources.
 2. Copy its connection string and keep it private.
 3. Paste the connection string into Render's `DATABASE_URL` setting as Neon
    provides it. The backend converts standard `postgresql://` and `postgres://`
-   URLs to the async SQLAlchemy driver; the Render blueprint enables
-   `DATABASE_SSL`.
+   URLs to the async SQLAlchemy driver and uses `DATABASE_SSL` for TLS, so
+   libpq-only query options such as `sslmode` and `channel_binding` are removed.
 
 Do not paste database credentials into source files or commit them.
 

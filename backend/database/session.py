@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import MetaData
+from sqlalchemy.engine import make_url
 
 from config import settings
 
@@ -23,11 +24,17 @@ metadata = MetaData(naming_convention=convention)
 # SSL is required for many cloud Postgres hosts (Neon, RDS with TLS).
 # Local Postgres usually has no SSL — controlled by DATABASE_SSL.
 _connect_args = {"ssl": True} if settings.DATABASE_SSL else {}
-_database_url = settings.DATABASE_URL
-if _database_url.startswith("postgres://"):
-    _database_url = "postgresql+asyncpg://" + _database_url.removeprefix("postgres://")
-elif _database_url.startswith("postgresql://"):
-    _database_url = "postgresql+asyncpg://" + _database_url.removeprefix("postgresql://")
+_database_url = make_url(settings.DATABASE_URL)
+if _database_url.drivername in {"postgres", "postgresql"}:
+    _query = {
+        key: value
+        for key, value in _database_url.query.items()
+        if key not in {"sslmode", "channel_binding"}
+    }
+    _database_url = _database_url.set(
+        drivername="postgresql+asyncpg",
+        query=_query,
+    )
 
 engine = create_async_engine(
     _database_url,
