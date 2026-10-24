@@ -23,9 +23,14 @@ metadata = MetaData(naming_convention=convention)
 # SSL is required for many cloud Postgres hosts (Neon, RDS with TLS).
 # Local Postgres usually has no SSL — controlled by DATABASE_SSL.
 _connect_args = {"ssl": True} if settings.DATABASE_SSL else {}
+_database_url = settings.DATABASE_URL
+if _database_url.startswith("postgres://"):
+    _database_url = "postgresql+asyncpg://" + _database_url.removeprefix("postgres://")
+elif _database_url.startswith("postgresql://"):
+    _database_url = "postgresql+asyncpg://" + _database_url.removeprefix("postgresql://")
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _database_url,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=settings.DATABASE_POOL_SIZE,

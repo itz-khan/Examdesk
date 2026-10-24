@@ -9,11 +9,10 @@ resources.
 
 1. Create a PostgreSQL project in [Neon](https://neon.tech/).
 2. Copy its connection string and keep it private.
-3. For Render's `DATABASE_URL`, use the async SQLAlchemy form:
-   `postgresql+asyncpg://...`
-   If Neon gives you `postgresql://...`, replace only that scheme prefix with
-   `postgresql+asyncpg://` and keep the host, credentials, database, and query
-   parameters intact. The Render blueprint enables `DATABASE_SSL`.
+3. Paste the connection string into Render's `DATABASE_URL` setting as Neon
+   provides it. The backend converts standard `postgresql://` and `postgres://`
+   URLs to the async SQLAlchemy driver; the Render blueprint enables
+   `DATABASE_SSL`.
 
 Do not paste database credentials into source files or commit them.
 
@@ -22,8 +21,7 @@ Do not paste database credentials into source files or commit them.
 1. Push the project to a GitHub repository you control.
 2. In Render, choose **New → Blueprint**, connect that repository, and select
    `render.yaml` at the repository root.
-3. When prompted for `DATABASE_URL`, paste the Neon connection string in the
-   async SQLAlchemy form described above.
+3. When prompted for `DATABASE_URL`, paste the Neon connection string as-is.
 4. Review the blueprint and create the service. The API health check is
    `/ready`; it verifies database connectivity.
 5. Copy the deployed service's HTTPS URL, for example
