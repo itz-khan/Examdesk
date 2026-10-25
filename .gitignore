@@ -1,6 +1,6 @@
 # Python
 backend/venv/
-backend/venv/
+backend/.venv/
 **/__pycache__/
 *.pyc
 backend/.env
@@ -8,6 +8,25 @@ backend/uploads/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+# Compose secrets (copy from .env.example)
+.env
+# Terraform secrets & state
+infra/terraform/terraform.tfvars
+infra/terraform/*.tfplan
+infra/terraform/tfplan
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.*
+infra/terraform/crash.log
+infra/terraform-free/terraform.tfvars
+infra/terraform-free/*.tfplan
+infra/terraform-free/tfplan
+infra/terraform-free/.terraform/
+infra/terraform-free/.terraform.lock.hcl
+infra/terraform-free/terraform.tfstate
+infra/terraform-free/terraform.tfstate.*
+infra/terraform-free/crash.log
 .DS_Store
 Thumbs.db
 .vscode/
